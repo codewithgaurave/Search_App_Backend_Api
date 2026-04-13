@@ -4,12 +4,14 @@ export const createNotification = async ({ user, title, body, type = 'system', r
   await Notification.create({ user, title, body, type, refId });
 };
 
-// Geo query helper
+// Geo query helper — $geoWithin use karo (sort ke saath compatible)
 export const nearbyQuery = (lng, lat, radiusKm = 10) => ({
   location: {
-    $near: {
-      $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
-      $maxDistance: radiusKm * 1000,
+    $geoWithin: {
+      $centerSphere: [
+        [parseFloat(lng), parseFloat(lat)],
+        radiusKm / 6378.1, // radius in radians
+      ],
     },
   },
 });

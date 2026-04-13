@@ -1,77 +1,121 @@
 import mongoose from 'mongoose';
 
+const JOB_CATEGORIES = [
+  // 🏠 Home Services
+  'plumber', 'electrician', 'carpenter', 'painter', 'cleaner',
+  'ac-repair', 'appliance-repair', 'pest-control', 'shifting-packing',
+  'gardener', 'security-guard', 'housekeeping',
+
+  // 👷 Construction & Labour
+  'mason', 'labour', 'welder', 'tile-work', 'civil-work',
+
+  // 🚗 Vehicle
+  'driver', 'mechanic', 'delivery',
+
+  // 🍳 Domestic
+  'cook', 'maid', 'babysitter', 'nurse', 'elderly-care',
+
+  // 📚 Education
+  'tutor', 'coaching',
+
+  // 💼 Office & Business
+  'data-entry', 'receptionist', 'sales', 'marketing', 'accountant',
+
+  // 🛍️ Retail & Shop
+  'shop-helper', 'cashier', 'warehouse',
+
+  // 🌾 Agriculture
+  'farming', 'harvesting',
+
+  // 🎨 Creative
+  'tailor', 'photographer', 'event-helper',
+
+  // 💻 Tech
+  'it-support', 'mobile-repair',
+
+  // 🏋️ Other
+  'gym-trainer', 'other',
+];
+
+const interestedWorkerSchema = new mongoose.Schema({
+  worker: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  interestedAt: { type: Date, default: Date.now },
+  message: String, // worker ka short message
+  status: {
+    type: String,
+    enum: ['interested', 'contacted', 'selected', 'rejected'],
+    default: 'interested',
+  },
+}, { _id: true });
+
 const jobSchema = new mongoose.Schema({
   postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
-  // Basic Info
+  // ── Basic Info ──────────────────────────────
   title: { type: String, required: true, trim: true },
   description: { type: String, maxlength: 2000 },
-  category: {
-    type: String,
-    enum: ['labour', 'skilled', 'part-time', 'full-time', 'gig', 'internship', 'contract', 'freelance'],
-    required: true,
-  },
+  category: { type: String, enum: JOB_CATEGORIES, required: true },
   subCategory: String,
-  skills: [String],
-  qualifications: [String],
 
-  // Salary
-  salary: {
-    min: Number,
-    max: Number,
-    type: { type: String, enum: ['hourly', 'daily', 'weekly', 'monthly', 'fixed', 'negotiable'], default: 'daily' },
-    currency: { type: String, default: 'INR' },
+  // ── Budget ──────────────────────────────────
+  budget: {
+    amount: Number,
+    type: { type: String, enum: ['hourly', 'daily', 'fixed', 'negotiable'], default: 'negotiable' },
   },
-  perks: [String], // food, accommodation, transport etc
 
-  // Job Details
-  openings: { type: Number, default: 1 },
-  experience: {
-    min: { type: Number, default: 0 }, // years
-    max: Number,
-  },
-  workType: { type: String, enum: ['on-site', 'remote', 'hybrid'], default: 'on-site' },
-  workHours: { type: String }, // e.g. "9am-6pm"
-  workDays: [String], // ['mon','tue',...]
+  // ── Job Details ─────────────────────────────
+  workersNeeded: { type: Number, default: 1 },
+  duration: String,       // "1 din", "1 hafte", "permanent"
   startDate: Date,
-  duration: String, // e.g. "3 months", "permanent"
+  startTime: String,      // "subah 9 baje"
   gender: { type: String, enum: ['male', 'female', 'any'], default: 'any' },
-  ageLimit: { min: Number, max: Number },
+  isUrgent: { type: Boolean, default: false },
 
-  // Media
+  // ── Media ───────────────────────────────────
   images: [String],
 
-  // Status
-  isActive: { type: Boolean, default: true },
+  // ── Status Flow ─────────────────────────────
+  // open → in-progress → completed → closed
+  status: {
+    type: String,
+    enum: ['open', 'in-progress', 'completed', 'cancelled', 'expired'],
+    default: 'open',
+  },
+
+  // ── Approval ────────────────────────────────
   isApproved: { type: Boolean, default: false },
+  isActive: { type: Boolean, default: true },
   isFeatured: { type: Boolean, default: false },
-  isUrgent: { type: Boolean, default: false },
   approvedAt: Date,
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   rejectionReason: String,
   expiresAt: Date,
 
-  // Analytics
+  // ── Interested Workers ───────────────────────
+  interestedWorkers: [interestedWorkerSchema],
+  totalInterested: { type: Number, default: 0 },
+
+  // ── Selected Worker ──────────────────────────
+  selectedWorker: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  selectedAt: Date,
+
+  // ── Completion ───────────────────────────────
+  completedAt: Date,
+  completionNote: String,
+  isReviewed: { type: Boolean, default: false },
+
+  // ── Analytics ────────────────────────────────
   views: { type: Number, default: 0 },
-  saves: { type: Number, default: 0 },
+  contactViews: { type: Number, default: 0 },
 
-  // Applications
-  applicants: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    appliedAt: { type: Date, default: Date.now },
-    status: { type: String, enum: ['applied', 'shortlisted', 'rejected', 'hired'], default: 'applied' },
-    note: String,
-  }],
-  totalApplicants: { type: Number, default: 0 },
-
-  // Boost
+  // ── Boost ────────────────────────────────────
   boostExpiry: Date,
   boostPlan: { type: String, enum: ['none', 'basic', 'premium', 'top'], default: 'none' },
 
-  // Location
+  // ── Location ─────────────────────────────────
   location: {
     type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], required: true },
+    coordinates: { type: [Number], required: true }, // [lng, lat]
     address: String,
     area: String,
     city: { type: String, required: true },
@@ -79,15 +123,18 @@ const jobSchema = new mongoose.Schema({
     pincode: String,
   },
 
-  // Flags
+  // ── Flags ────────────────────────────────────
   reportCount: { type: Number, default: 0 },
   isFraudSuspected: { type: Boolean, default: false },
+
 }, { timestamps: true });
 
 jobSchema.index({ location: '2dsphere' });
-jobSchema.index({ category: 1, isApproved: 1, isActive: 1 });
-jobSchema.index({ 'location.city': 1 });
+jobSchema.index({ category: 1, status: 1, isApproved: 1, isActive: 1 });
+jobSchema.index({ 'location.city': 1, category: 1 });
 jobSchema.index({ postedBy: 1 });
-jobSchema.index({ isFeatured: -1, isUrgent: -1 });
+jobSchema.index({ status: 1, isActive: 1 });
+jobSchema.index({ isFeatured: -1, isUrgent: -1, createdAt: -1 });
 
+export { JOB_CATEGORIES };
 export default mongoose.model('Job', jobSchema);
