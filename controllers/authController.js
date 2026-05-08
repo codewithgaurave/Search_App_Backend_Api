@@ -56,8 +56,8 @@ export const sendOtp = async (req, res, next) => {
       user = await User.create(newUserData);
     }
 
-    if (user.isBanned)
-      return res.status(403).json({ success: false, message: `Account banned: ${user.banReason}` });
+    if (user.banned?.isBanned)
+      return res.status(403).json({ success: false, message: `Account banned: ${user.banned.reason}` });
 
     // OTP generate karo
     const otp = generateOTP();
@@ -158,11 +158,10 @@ export const adminLogin = async (req, res, next) => {
     if (!isMatch)
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
-    if (user.isBanned)
+    if (user.banned?.isBanned)
       return res.status(403).json({ success: false, message: 'Account banned' });
 
-    user.lastSeen = new Date();
-    await user.save();
+    await User.findByIdAndUpdate(user._id, { lastSeen: new Date() });
 
     sendToken(res, user, 200, 'Admin login successful');
   } catch (err) { next(err); }
@@ -198,9 +197,29 @@ export const updateProfile = async (req, res, next) => {
     ];
     const update = {};
     allowed.forEach((f) => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
+
+    // location update hone pe type aur coordinates preserve karo
+    if (update.location) {
+      const existing = await User.findById(req.user._id).select('location');
+      update.location = {
+        type: 'Point',
+        coordinates: existing?.location?.coordinates || [0, 0],
+        ...update.location,
+      };
+    }
+
+    if (req.body.password) update.password = req.body.password;
     if (req.file) update.avatar = req.file.path;
 
-    const user = await User.findByIdAndUpdate(req.user._id, update, { new: true, runValidators: true });
+    // password alag se handle karo taaki bcrypt hash ho
+    if (update.password) {
+      const userDoc = await User.findById(req.user._id).select('+password');
+      userDoc.password = update.password;
+      await userDoc.save();
+      delete update.password;
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, { $set: update }, { new: true, runValidators: false });
     res.json({ success: true, user });
   } catch (err) { next(err); }
 };

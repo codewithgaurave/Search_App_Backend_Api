@@ -80,13 +80,17 @@ export const getAllUsers = async (req, res, next) => {
 export const banUser = async (req, res, next) => {
   try {
     const { reason } = req.body;
-    const user = await User.findByIdAndUpdate(
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (['admin', 'ops'].includes(user.role))
+      return res.status(403).json({ success: false, message: 'Admin and Ops accounts cannot be banned.' });
+
+    await User.findByIdAndUpdate(
       req.params.id,
-      { isBanned: true, isActive: false, banReason: reason },
+      { isActive: false, banned: { isBanned: true, reason, bannedAt: new Date() } },
       { new: true }
     );
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, message: 'User banned' });
+    res.json({ success: true, message: 'User banned successfully.' });
   } catch (err) { next(err); }
 };
 
@@ -95,7 +99,7 @@ export const unbanUser = async (req, res, next) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { isBanned: false, isActive: true, banReason: null },
+      { isActive: true, banned: { isBanned: false, reason: null, bannedAt: null } },
       { new: true }
     );
     res.json({ success: true, message: 'User unbanned' });

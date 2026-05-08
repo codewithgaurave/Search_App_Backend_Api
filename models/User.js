@@ -41,8 +41,11 @@ const userSchema = new mongoose.Schema({
   isEmailVerified: { type: Boolean, default: false },
   verificationBadge: { type: String, enum: ['none', 'basic', 'trusted', 'premium'], default: 'none' },
   isActive: { type: Boolean, default: true },
-  isBanned: { type: Boolean, default: false },
-  banReason: String,
+  banned: {
+    isBanned: { type: Boolean, default: false },
+    reason: { type: String, default: null },
+    bannedAt: { type: Date, default: null },
+  },
 
   // KYC
   kyc: { type: kycSchema, default: () => ({}) },
